@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Progress } from '@/components/ui/progress'
 import { Input } from '@/components/ui/input'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { 
   Users, 
@@ -60,7 +61,21 @@ export default function PlayersPage() {
   const [showPlayerDialog, setShowPlayerDialog] = useState(false)
   const [showRewardDialog, setShowRewardDialog] = useState(false)
   const [showEffectDialog, setShowEffectDialog] = useState(false)
+  const [showInviteDialog, setShowInviteDialog] = useState(false)
+  const [showCreatePlayerDialog, setShowCreatePlayerDialog] = useState(false)
   const [actionLoading, setActionLoading] = useState(false)
+  
+  // Состояния для приглашения игрока
+  const [inviteEmail, setInviteEmail] = useState('')
+  const [inviteLoading, setInviteLoading] = useState(false)
+  
+  // Состояния для создания игрока
+  const [newPlayerData, setNewPlayerData] = useState({
+    name: '',
+    email: '',
+    class: 'Warrior',
+    avatar: '⚔️'
+  })
 
   // Обработчики действий с игроками
   const handleGiveReward = async () => {
@@ -192,6 +207,83 @@ export default function PlayersPage() {
     }
   }
 
+  // Функция приглашения игрока по email
+  const handleInvitePlayer = async () => {
+    if (!inviteEmail.trim()) {
+      alert('Введите email для приглашения')
+      return
+    }
+
+    setInviteLoading(true)
+    try {
+      const response = await fetch('/api/guild/invite', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          email: inviteEmail.trim(),
+          guildId: guild?.id 
+        })
+      })
+
+      const result = await response.json()
+      
+      if (response.ok) {
+        alert('Приглашение отправлено! Пользователь получит уведомление на email.')
+        setInviteEmail('')
+        setShowInviteDialog(false)
+      } else {
+        alert(result.error || 'Ошибка при отправке приглашения')
+      }
+    } catch (error) {
+      console.error('Ошибка при приглашении игрока:', error)
+      alert('Ошибка при отправке приглашения. Попробуйте позже.')
+    } finally {
+      setInviteLoading(false)
+    }
+  }
+
+  // Функция создания нового игрока
+  const handleCreatePlayer = async () => {
+    if (!newPlayerData.name.trim() || !newPlayerData.email.trim()) {
+      alert('Заполните имя и email игрока')
+      return
+    }
+
+    setInviteLoading(true)
+    try {
+      const response = await fetch('/api/players/create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          ...newPlayerData,
+          guildId: guild?.id 
+        })
+      })
+
+      const result = await response.json()
+      
+      if (response.ok) {
+        alert('Новый игрок создан успешно!')
+        setNewPlayerData({
+          name: '',
+          email: '',
+          class: 'Warrior',
+          avatar: '⚔️'
+        })
+        setShowCreatePlayerDialog(false)
+        // Перезагружаем список игроков
+        window.location.reload()
+      } else {
+        alert(result.error || 'Ошибка при создании игрока')
+      }
+    } catch (error) {
+      console.error('Ошибка при создании игрока:', error)
+      alert('Ошибка при создании игрока. Попробуйте позже.')
+    } finally {
+      setInviteLoading(false)
+    }
+  }
+
   useEffect(() => {
     console.log('Players page: useEffect triggered')
     // Загружаем данные игроков из API
@@ -318,10 +410,16 @@ export default function PlayersPage() {
               Просмотр и управление участниками гильдии
             </p>
           </div>
-          <Button>
-            <UserPlus className="w-4 h-4 mr-2" />
-            Пригласить игрока
-          </Button>
+          <div className="flex gap-2">
+            <Button onClick={() => setShowInviteDialog(true)}>
+              <UserPlus className="w-4 h-4 mr-2" />
+              Пригласить игрока
+            </Button>
+            <Button variant="outline" onClick={() => setShowCreatePlayerDialog(true)}>
+              <UserPlus className="w-4 h-4 mr-2" />
+              Создать игрока
+            </Button>
+          </div>
         </div>
 
         {/* Статистика */}
@@ -718,6 +816,136 @@ export default function PlayersPage() {
                   <span className="text-xl mb-1">😴</span>
                   <span className="text-xs">Усталость</span>
                   <span className="text-xs text-muted-foreground">15 мин</span>
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* Диалог приглашения игрока */}
+        <Dialog open={showInviteDialog} onOpenChange={setShowInviteDialog}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle>Пригласить игрока</DialogTitle>
+              <DialogDescription>
+                Введите email существующего пользователя для приглашения в гильдию
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div>
+                <label htmlFor="invite-email" className="text-sm font-medium">
+                  Email для приглашения
+                </label>
+                <Input
+                  id="invite-email"
+                  type="email"
+                  placeholder="player@example.com"
+                  value={inviteEmail}
+                  onChange={(e) => setInviteEmail(e.target.value)}
+                  className="mt-1"
+                />
+              </div>
+              <div className="flex justify-end space-x-2">
+                <Button 
+                  variant="outline" 
+                  onClick={() => setShowInviteDialog(false)}
+                  disabled={inviteLoading}
+                >
+                  Отмена
+                </Button>
+                <Button 
+                  onClick={handleInvitePlayer}
+                  disabled={inviteLoading || !inviteEmail.trim()}
+                >
+                  {inviteLoading ? 'Отправка...' : 'Отправить приглашение'}
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* Диалог создания нового игрока */}
+        <Dialog open={showCreatePlayerDialog} onOpenChange={setShowCreatePlayerDialog}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle>Создать нового игрока</DialogTitle>
+              <DialogDescription>
+                Создайте учетную запись для нового игрока
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div>
+                <label htmlFor="player-name" className="text-sm font-medium">
+                  Имя игрока
+                </label>
+                <Input
+                  id="player-name"
+                  placeholder="Введите имя"
+                  value={newPlayerData.name}
+                  onChange={(e) => setNewPlayerData(prev => ({ ...prev, name: e.target.value }))}
+                  className="mt-1"
+                />
+              </div>
+              <div>
+                <label htmlFor="player-email" className="text-sm font-medium">
+                  Email
+                </label>
+                <Input
+                  id="player-email"
+                  type="email"
+                  placeholder="player@example.com"
+                  value={newPlayerData.email}
+                  onChange={(e) => setNewPlayerData(prev => ({ ...prev, email: e.target.value }))}
+                  className="mt-1"
+                />
+              </div>
+              <div>
+                <label htmlFor="player-class" className="text-sm font-medium">
+                  Класс персонажа
+                </label>
+                <Select
+                  value={newPlayerData.class}
+                  onValueChange={(value) => setNewPlayerData(prev => ({ ...prev, class: value }))}
+                >
+                  <SelectTrigger className="mt-1">
+                    <SelectValue placeholder="Выберите класс" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Warrior">Воин ⚔️</SelectItem>
+                    <SelectItem value="Mage">Маг 🔮</SelectItem>
+                    <SelectItem value="Archer">Лучник 🏹</SelectItem>
+                    <SelectItem value="Rogue">Разбойник 🗡️</SelectItem>
+                    <SelectItem value="Paladin">Паладин 🛡️</SelectItem>
+                    <SelectItem value="Healer">Целитель ✨</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <label htmlFor="player-avatar" className="text-sm font-medium">
+                  Аватар (эмодзи)
+                </label>
+                <Input
+                  id="player-avatar"
+                  placeholder="⚔️"
+                  value={newPlayerData.avatar}
+                  onChange={(e) => setNewPlayerData(prev => ({ ...prev, avatar: e.target.value }))}
+                  className="mt-1"
+                  maxLength={2}
+                />
+              </div>
+              <div className="flex justify-end space-x-2">
+                <Button 
+                  variant="outline" 
+                  onClick={() => setShowCreatePlayerDialog(false)}
+                  disabled={inviteLoading}
+                >
+                  Отмена
+                </Button>
+                <Button 
+                  onClick={handleCreatePlayer}
+                  disabled={inviteLoading || !newPlayerData.name.trim() || !newPlayerData.email.trim()}
+                >
+                  {inviteLoading ? 'Создание...' : 'Создать игрока'}
                 </Button>
               </div>
             </div>

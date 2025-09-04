@@ -198,7 +198,7 @@ export default function DashboardLayout({
                     </Badge>
                   </div>
                   <div className="text-xs text-slate-400">
-                    {guildData?.memberCount ? `${guildData.memberCount} участников` : 'Данные загружаются...'}
+                    {guildData?.memberCount !== undefined ? `${guildData.memberCount} участников` : 'Данные загружаются...'}
                   </div>
                 </>
               )}
@@ -273,7 +273,7 @@ export default function DashboardLayout({
                 <p className="text-sm font-medium text-white">{guildData?.name || 'Загрузка...'}</p>
                 <p className="text-xs text-slate-400">
                   {userRole === 'dm' 
-                    ? (guildData?.activePlayers ? `${guildData.activePlayers} активных игроков` : 'Данные загружаются...')
+                    ? (guildData?.activePlayers !== undefined ? `${guildData.activePlayers} активных игроков` : 'Данные загружаются...')
                     : 'Участник гильдии'
                   }
                 </p>
