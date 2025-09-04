@@ -1,0 +1,410 @@
+'use client'
+
+import { useState } from 'react'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Textarea } from '@/components/ui/textarea'
+import { Switch } from '@/components/ui/switch'
+import { Badge } from '@/components/ui/badge'
+import { 
+  Settings, 
+  Save,
+  Shield,
+  Bell,
+  Palette,
+  Key,
+  Trash2,
+  Download,
+  Upload
+} from 'lucide-react'
+
+export default function GuildSettings() {
+  const [guildSettings, setGuildSettings] = useState({
+    name: 'Семья Драконоборцев',
+    description: 'Наша дружная семья объединилась для выполнения домашних квестов',
+    code: 'ABC123',
+    autoApproval: false,
+    notifications: {
+      questCompleted: true,
+      newMember: true,
+      levelUp: true,
+      achievements: true
+    },
+    rewards: {
+      dailyBonus: true,
+      streakBonus: true,
+      weeklyChallenge: true
+    },
+    privacy: {
+      publicStats: false,
+      memberList: true,
+      achievements: true
+    }
+  })
+
+  const [loading, setLoading] = useState(false)
+
+  const handleSave = async () => {
+    setLoading(true)
+    try {
+      // Здесь будет API запрос для сохранения настроек
+      await new Promise(resolve => setTimeout(resolve, 1000))
+      console.log('Settings saved:', guildSettings)
+    } catch (error) {
+      console.error('Error saving settings:', error)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const generateNewCode = () => {
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'
+    let result = ''
+    for (let i = 0; i < 6; i++) {
+      result += chars.charAt(Math.floor(Math.random() * chars.length))
+    }
+    setGuildSettings({ ...guildSettings, code: result })
+  }
+
+  const exportData = () => {
+    // Экспорт данных гильдии
+    console.log('Exporting guild data...')
+  }
+
+  const importData = () => {
+    // Импорт данных гильдии
+    console.log('Importing guild data...')
+  }
+
+  const deleteGuild = () => {
+    // Удаление гильдии (с подтверждением)
+    const confirmed = window.confirm('Вы уверены, что хотите удалить гильдию? Это действие нельзя отменить.')
+    if (confirmed) {
+      console.log('Deleting guild...')
+    }
+  }
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold">Настройки гильдии</h1>
+          <p className="text-muted-foreground">
+            Управление основными параметрами вашей гильдии
+          </p>
+        </div>
+        <Button onClick={handleSave} disabled={loading}>
+          <Save className="w-4 h-4 mr-2" />
+          {loading ? 'Сохранение...' : 'Сохранить'}
+        </Button>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Основные настройки */}
+        <div className="lg:col-span-2 space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Settings className="w-5 h-5" />
+                Основные настройки
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div>
+                <Label>Название гильдии</Label>
+                <Input
+                  value={guildSettings.name}
+                  onChange={(e) => setGuildSettings({ ...guildSettings, name: e.target.value })}
+                />
+              </div>
+              
+              <div>
+                <Label>Описание</Label>
+                <Textarea
+                  value={guildSettings.description}
+                  onChange={(e) => setGuildSettings({ ...guildSettings, description: e.target.value })}
+                  rows={3}
+                />
+              </div>
+
+              <div>
+                <Label>Код приглашения</Label>
+                <div className="flex gap-2">
+                  <Input value={guildSettings.code} readOnly className="font-mono" />
+                  <Button variant="outline" onClick={generateNewCode}>
+                    <Key className="w-4 h-4 mr-2" />
+                    Новый
+                  </Button>
+                </div>
+                <p className="text-sm text-muted-foreground mt-1">
+                  Поделитесь этим кодом с членами семьи для присоединения к гильдии
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Shield className="w-5 h-5" />
+                Управление квестами
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <Label>Автоматическое одобрение</Label>
+                  <p className="text-sm text-muted-foreground">
+                    Квесты будут одобряться автоматически без проверки
+                  </p>
+                </div>
+                <Switch
+                  checked={guildSettings.autoApproval}
+                  onCheckedChange={(checked) => 
+                    setGuildSettings({ ...guildSettings, autoApproval: checked })
+                  }
+                />
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Bell className="w-5 h-5" />
+                Уведомления
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex items-center justify-between">
+                <Label>Выполнение квеста</Label>
+                <Switch
+                  checked={guildSettings.notifications.questCompleted}
+                  onCheckedChange={(checked) => 
+                    setGuildSettings({ 
+                      ...guildSettings, 
+                      notifications: { ...guildSettings.notifications, questCompleted: checked }
+                    })
+                  }
+                />
+              </div>
+              
+              <div className="flex items-center justify-between">
+                <Label>Новый участник</Label>
+                <Switch
+                  checked={guildSettings.notifications.newMember}
+                  onCheckedChange={(checked) => 
+                    setGuildSettings({ 
+                      ...guildSettings, 
+                      notifications: { ...guildSettings.notifications, newMember: checked }
+                    })
+                  }
+                />
+              </div>
+              
+              <div className="flex items-center justify-between">
+                <Label>Повышение уровня</Label>
+                <Switch
+                  checked={guildSettings.notifications.levelUp}
+                  onCheckedChange={(checked) => 
+                    setGuildSettings({ 
+                      ...guildSettings, 
+                      notifications: { ...guildSettings.notifications, levelUp: checked }
+                    })
+                  }
+                />
+              </div>
+              
+              <div className="flex items-center justify-between">
+                <Label>Достижения</Label>
+                <Switch
+                  checked={guildSettings.notifications.achievements}
+                  onCheckedChange={(checked) => 
+                    setGuildSettings({ 
+                      ...guildSettings, 
+                      notifications: { ...guildSettings.notifications, achievements: checked }
+                    })
+                  }
+                />
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Palette className="w-5 h-5" />
+                Система наград
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <Label>Ежедневный бонус</Label>
+                  <p className="text-sm text-muted-foreground">
+                    Дополнительные монеты за первый квест дня
+                  </p>
+                </div>
+                <Switch
+                  checked={guildSettings.rewards.dailyBonus}
+                  onCheckedChange={(checked) => 
+                    setGuildSettings({ 
+                      ...guildSettings, 
+                      rewards: { ...guildSettings.rewards, dailyBonus: checked }
+                    })
+                  }
+                />
+              </div>
+              
+              <div className="flex items-center justify-between">
+                <div>
+                  <Label>Бонус за серию</Label>
+                  <p className="text-sm text-muted-foreground">
+                    Увеличенные награды за выполнение квестов подряд
+                  </p>
+                </div>
+                <Switch
+                  checked={guildSettings.rewards.streakBonus}
+                  onCheckedChange={(checked) => 
+                    setGuildSettings({ 
+                      ...guildSettings, 
+                      rewards: { ...guildSettings.rewards, streakBonus: checked }
+                    })
+                  }
+                />
+              </div>
+              
+              <div className="flex items-center justify-between">
+                <div>
+                  <Label>Еженедельные испытания</Label>
+                  <p className="text-sm text-muted-foreground">
+                    Специальные квесты с повышенными наградами
+                  </p>
+                </div>
+                <Switch
+                  checked={guildSettings.rewards.weeklyChallenge}
+                  onCheckedChange={(checked) => 
+                    setGuildSettings({ 
+                      ...guildSettings, 
+                      rewards: { ...guildSettings.rewards, weeklyChallenge: checked }
+                    })
+                  }
+                />
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Боковая панель */}
+        <div className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Статистика гильдии</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="flex justify-between">
+                <span className="text-sm">Участников</span>
+                <Badge variant="outline">2</Badge>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-sm">Всего квестов</span>
+                <Badge variant="outline">47</Badge>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-sm">Выполнено</span>
+                <Badge variant="outline">35</Badge>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-sm">Дней активности</span>
+                <Badge variant="outline">12</Badge>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Конфиденциальность</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex items-center justify-between">
+                <Label className="text-sm">Публичная статистика</Label>
+                <Switch
+                  checked={guildSettings.privacy.publicStats}
+                  onCheckedChange={(checked) => 
+                    setGuildSettings({ 
+                      ...guildSettings, 
+                      privacy: { ...guildSettings.privacy, publicStats: checked }
+                    })
+                  }
+                />
+              </div>
+              
+              <div className="flex items-center justify-between">
+                <Label className="text-sm">Список участников</Label>
+                <Switch
+                  checked={guildSettings.privacy.memberList}
+                  onCheckedChange={(checked) => 
+                    setGuildSettings({ 
+                      ...guildSettings, 
+                      privacy: { ...guildSettings.privacy, memberList: checked }
+                    })
+                  }
+                />
+              </div>
+              
+              <div className="flex items-center justify-between">
+                <Label className="text-sm">Достижения</Label>
+                <Switch
+                  checked={guildSettings.privacy.achievements}
+                  onCheckedChange={(checked) => 
+                    setGuildSettings({ 
+                      ...guildSettings, 
+                      privacy: { ...guildSettings.privacy, achievements: checked }
+                    })
+                  }
+                />
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Данные</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <Button variant="outline" className="w-full" onClick={exportData}>
+                <Download className="w-4 h-4 mr-2" />
+                Экспорт данных
+              </Button>
+              <Button variant="outline" className="w-full" onClick={importData}>
+                <Upload className="w-4 h-4 mr-2" />
+                Импорт данных
+              </Button>
+            </CardContent>
+          </Card>
+
+          <Card className="border-red-600 border-2">
+            <CardHeader>
+              <CardTitle className="text-red-400">Опасная зона</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <Button 
+                variant="destructive" 
+                className="w-full" 
+                onClick={deleteGuild}
+              >
+                <Trash2 className="w-4 h-4 mr-2" />
+                Удалить гильдию
+              </Button>
+              <p className="text-xs text-muted-foreground mt-2">
+                Это действие нельзя отменить
+              </p>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    </div>
+  )
+}

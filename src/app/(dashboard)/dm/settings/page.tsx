@@ -1,0 +1,662 @@
+'use client'
+
+import { useState, useEffect } from 'react'
+import { useUserSession } from '@/hooks/useUserSession'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Textarea } from '@/components/ui/textarea'
+import { Switch } from '@/components/ui/switch'
+import { Badge } from '@/components/ui/badge'
+import { 
+  Settings, 
+  Save,
+  Shield,
+  Bell,
+  Palette,
+  Key,
+  Trash2,
+  Download,
+  Upload,
+  BarChart3,
+  User
+} from 'lucide-react'
+
+export default function GuildSettings() {
+  const { user, guild, loading: sessionLoading } = useUserSession()
+  const [loading, setLoading] = useState(false)
+  const [guildStats, setGuildStats] = useState({
+    totalQuests: 0,
+    completedQuests: 0,
+    activeMembers: 0,
+    totalRewards: 0
+  })
+  
+  const [guildSettings, setGuildSettings] = useState({
+    name: '',
+    description: '',
+    code: '',
+    autoApproval: false,
+    notifications: {
+      questCompleted: true,
+      newMember: true,
+      levelUp: true,
+      achievements: true
+    },
+    rewards: {
+      dailyBonus: true,
+      streakBonus: true,
+      weeklyChallenge: false
+    },
+    privacy: {
+      memberList: true,
+      achievements: true
+    }
+  })
+
+  const [gmSettings, setGmSettings] = useState({
+    name: '',
+    email: ''
+  })
+
+  const [saveMessage, setSaveMessage] = useState<{type: 'success' | 'error' | null, message: string}>({type: null, message: ''})
+
+  useEffect(() => {
+    console.log('Settings effect - Guild:', guild, 'User:', user, 'Session loading:', sessionLoading)
+
+    if (sessionLoading) {
+      console.log('Session still loading, waiting...')
+      return
+    }
+
+    const loadGuildStats = async () => {
+      if (!guild?.id) return
+
+      try {
+        const [questsResponse, membersResponse] = await Promise.all([
+          fetch(`/api/quests?guildId=${guild.id}`),
+          fetch(`/api/characters?guildId=${guild.id}`)
+        ])
+
+        if (questsResponse.ok && membersResponse.ok) {
+          const quests = await questsResponse.json()
+          const members = await membersResponse.json()
+          
+          console.log('Guild stats loaded:', { quests: Array.isArray(quests) ? quests.length : 0, members: Array.isArray(members) ? members.length : 0 })
+
+          setGuildStats({
+            totalQuests: Array.isArray(quests) ? quests.length : 0,
+            completedQuests: Array.isArray(quests) ? quests.filter((q: { status: string }) => q.status === 'completed').length : 0,
+            activeMembers: Array.isArray(members) ? members.length : 0,
+            totalRewards: Array.isArray(quests) ? quests.reduce((sum: number, q: { reward?: number }) => sum + (q.reward || 0), 0) : 0
+          })
+        }
+      } catch (error) {
+        console.error('Error loading guild stats:', error)
+      }
+    }
+
+    if (guild) {
+      setGuildSettings(prev => ({
+        ...prev,
+        name: guild.name || '',
+        description: guild.description || 'Описание гильдии',
+        code: guild.code || ''
+      }))
+      
+      // Загружаем статистику
+      loadGuildStats()
+    }
+
+    if (user) {
+      console.log('Loading GM settings for user:', user)
+      setGmSettings(prev => ({
+        ...prev,
+        name: user.name || '',
+        email: user.email || ''
+      }))
+    }
+  }, [guild, user, sessionLoading])
+
+  const handleSave = async () => {
+    if (!guild?.id) return
+    
+    setLoading(true)
+    try {
+      const response = await fetch(`/api/guild/${guild.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: guildSettings.name,
+          description: guildSettings.description,
+          code: guildSettings.code
+        })
+      })
+      
+      if (response.ok) {
+        console.log('Settings saved successfully')
+      } else {
+        throw new Error('Failed to save settings')
+      }
+    } catch (error) {
+      console.error('Error saving settings:', error)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleSaveGmSettings = async () => {
+    if (!user?.id) {
+      console.error('No user ID available for saving GM settings')
+      setSaveMessage({ type: 'error', message: 'Ошибка: не удалось определить пользователя' })
+      return
+    }
+    
+    console.log('Saving GM settings:', gmSettings)
+    console.log('Current user:', user)
+    
+    // Сбрасываем предыдущие сообщения
+    setSaveMessage({ type: null, message: '' })
+    
+    // Проверяем, изменились ли данные
+    const hasChanges = gmSettings.name !== user.name || gmSettings.email !== user.email
+    if (!hasChanges) {
+      console.log('No changes detected, skipping save')
+      setSaveMessage({ type: 'success', message: 'Настройки уже актуальны' })
+      return
+    }
+    
+    // Валидация email
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+    if (gmSettings.email && !emailRegex.test(gmSettings.email)) {
+      console.error('Invalid email format:', gmSettings.email)
+      setSaveMessage({ type: 'error', message: 'Неверный формат email адреса' })
+      return
+    }
+    
+    setLoading(true)
+    try {
+      console.log('Sending PATCH request to:', `/api/user/${user.id}`)
+      const requestBody = {
+        name: gmSettings.name,
+        email: gmSettings.email
+      }
+      console.log('Request body:', requestBody)
+      
+      const response = await fetch(`/api/user/${user.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(requestBody)
+      })
+      
+      console.log('Response status:', response.status)
+      
+      if (response.ok) {
+        const responseData = await response.json()
+        console.log('GM settings saved successfully:', responseData)
+        setSaveMessage({ type: 'success', message: 'Настройки успешно сохранены!' })
+      } else {
+        const errorData = await response.text()
+        console.error('Failed to save GM settings. Status:', response.status, 'Response:', errorData)
+        
+        if (response.status === 400) {
+          try {
+            const parsedError = JSON.parse(errorData)
+            // Используем сообщение об ошибке из API
+            setSaveMessage({ type: 'error', message: parsedError.error || 'Ошибка при сохранении' })
+          } catch {
+            setSaveMessage({ type: 'error', message: 'Ошибка при сохранении настроек' })
+          }
+        } else {
+          setSaveMessage({ type: 'error', message: `Ошибка сервера (${response.status})` })
+        }
+      }
+    } catch (error) {
+      console.error('Error saving GM settings:', error)
+      setSaveMessage({ type: 'error', message: 'Ошибка соединения с сервером' })
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const generateNewCode = async () => {
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'
+    let result = ''
+    for (let i = 0; i < 6; i++) {
+      result += chars.charAt(Math.floor(Math.random() * chars.length))
+    }
+    
+    console.log('Generated new code:', result)
+    
+    const newSettings = { ...guildSettings, code: result }
+    setGuildSettings(newSettings)
+    
+    // Автоматически сохраняем новый код
+    if (guild?.id) {
+      try {
+        console.log('Sending PATCH request to:', `/api/guild/${guild.id}`)
+        const response = await fetch(`/api/guild/${guild.id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ code: result })
+        })
+        
+        console.log('Response status:', response.status)
+        
+        if (response.ok) {
+          const responseData = await response.json()
+          console.log('Successfully updated invite code:', responseData)
+        } else {
+          const errorText = await response.text()
+          console.error('Failed to update invite code. Status:', response.status, 'Response:', errorText)
+          throw new Error(`Failed to update invite code: ${response.status}`)
+        }
+      } catch (error) {
+        console.error('Error updating invite code:', error)
+      }
+    } else {
+      console.error('No guild ID available for updating invite code')
+    }
+  }
+
+  const exportData = () => {
+    // Экспорт данных гильдии
+    console.log('Exporting guild data...')
+  }
+
+  const importData = () => {
+    // Импорт данных гильдии
+    console.log('Importing guild data...')
+  }
+
+  const deleteGuild = () => {
+    // Удаление гильдии (с подтверждением)
+    const confirmed = window.confirm('Вы уверены, что хотите удалить гильдию? Это действие нельзя отменить.')
+    if (confirmed) {
+      console.log('Deleting guild...')
+    }
+  }
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold">Настройки гильдии</h1>
+          <p className="text-muted-foreground">
+            Управление основными параметрами вашей гильдии
+          </p>
+        </div>
+        <Button onClick={handleSave} disabled={loading}>
+          <Save className="w-4 h-4 mr-2" />
+          {loading ? 'Сохранение...' : 'Сохранить'}
+        </Button>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Основные настройки */}
+        <div className="lg:col-span-2 space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Settings className="w-5 h-5" />
+                Основные настройки
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div>
+                <Label>Название гильдии</Label>
+                <Input
+                  value={guildSettings.name}
+                  onChange={(e) => setGuildSettings({ ...guildSettings, name: e.target.value })}
+                />
+              </div>
+              
+              <div>
+                <Label>Описание</Label>
+                <Textarea
+                  value={guildSettings.description}
+                  onChange={(e) => setGuildSettings({ ...guildSettings, description: e.target.value })}
+                  rows={3}
+                />
+              </div>
+
+              <div>
+                <Label>Код приглашения</Label>
+                <div className="flex gap-2">
+                  <Input value={guildSettings.code} readOnly className="font-mono" />
+                  <Button variant="outline" onClick={generateNewCode}>
+                    <Key className="w-4 h-4 mr-2" />
+                    Новый
+                  </Button>
+                </div>
+                <p className="text-sm text-muted-foreground mt-1">
+                  Поделитесь этим кодом с членами семьи для присоединения к гильдии
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Shield className="w-5 h-5" />
+                Управление квестами
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <Label>Автоматическое одобрение</Label>
+                  <p className="text-sm text-muted-foreground">
+                    Квесты будут одобряться автоматически без проверки
+                  </p>
+                </div>
+                <Switch
+                  checked={guildSettings.autoApproval}
+                  onCheckedChange={(checked) => 
+                    setGuildSettings({ ...guildSettings, autoApproval: checked })
+                  }
+                />
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Bell className="w-5 h-5" />
+                Уведомления
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex items-center justify-between">
+                <Label>Выполнение квеста</Label>
+                <Switch
+                  checked={guildSettings.notifications.questCompleted}
+                  onCheckedChange={(checked) => 
+                    setGuildSettings({ 
+                      ...guildSettings, 
+                      notifications: { ...guildSettings.notifications, questCompleted: checked }
+                    })
+                  }
+                />
+              </div>
+              
+              <div className="flex items-center justify-between">
+                <Label>Новый участник</Label>
+                <Switch
+                  checked={guildSettings.notifications.newMember}
+                  onCheckedChange={(checked) => 
+                    setGuildSettings({ 
+                      ...guildSettings, 
+                      notifications: { ...guildSettings.notifications, newMember: checked }
+                    })
+                  }
+                />
+              </div>
+              
+              <div className="flex items-center justify-between">
+                <Label>Повышение уровня</Label>
+                <Switch
+                  checked={guildSettings.notifications.levelUp}
+                  onCheckedChange={(checked) => 
+                    setGuildSettings({ 
+                      ...guildSettings, 
+                      notifications: { ...guildSettings.notifications, levelUp: checked }
+                    })
+                  }
+                />
+              </div>
+              
+              <div className="flex items-center justify-between">
+                <Label>Достижения</Label>
+                <Switch
+                  checked={guildSettings.notifications.achievements}
+                  onCheckedChange={(checked) => 
+                    setGuildSettings({ 
+                      ...guildSettings, 
+                      notifications: { ...guildSettings.notifications, achievements: checked }
+                    })
+                  }
+                />
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Palette className="w-5 h-5" />
+                Система наград
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <Label>Ежедневный бонус</Label>
+                  <p className="text-sm text-muted-foreground">
+                    Дополнительные монеты за первый квест дня
+                  </p>
+                </div>
+                <Switch
+                  checked={guildSettings.rewards.dailyBonus}
+                  onCheckedChange={(checked) => 
+                    setGuildSettings({ 
+                      ...guildSettings, 
+                      rewards: { ...guildSettings.rewards, dailyBonus: checked }
+                    })
+                  }
+                />
+              </div>
+              
+              <div className="flex items-center justify-between">
+                <div>
+                  <Label>Бонус за серию</Label>
+                  <p className="text-sm text-muted-foreground">
+                    Увеличенные награды за выполнение квестов подряд
+                  </p>
+                </div>
+                <Switch
+                  checked={guildSettings.rewards.streakBonus}
+                  onCheckedChange={(checked) => 
+                    setGuildSettings({ 
+                      ...guildSettings, 
+                      rewards: { ...guildSettings.rewards, streakBonus: checked }
+                    })
+                  }
+                />
+              </div>
+              
+              <div className="flex items-center justify-between">
+                <div>
+                  <Label>Еженедельные испытания</Label>
+                  <p className="text-sm text-muted-foreground">
+                    Специальные квесты с повышенными наградами
+                  </p>
+                </div>
+                <Switch
+                  checked={guildSettings.rewards.weeklyChallenge}
+                  onCheckedChange={(checked) => 
+                    setGuildSettings({ 
+                      ...guildSettings, 
+                      rewards: { ...guildSettings.rewards, weeklyChallenge: checked }
+                    })
+                  }
+                />
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Боковая панель */}
+        <div className="space-y-6">
+          {/* Настройки GM */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <User className="w-5 h-5" />
+                Личные настройки GM
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {saveMessage.type && (
+                <div className={`p-3 rounded-lg text-sm ${
+                  saveMessage.type === 'success' 
+                    ? 'bg-green-50 text-green-700 border border-green-200' 
+                    : 'bg-red-50 text-red-700 border border-red-200'
+                }`}>
+                  {saveMessage.message}
+                </div>
+              )}
+              
+              <div>
+                <Label htmlFor="gm-name">Имя</Label>
+                <Input
+                  id="gm-name"
+                  value={gmSettings.name}
+                  onChange={(e) => setGmSettings({...gmSettings, name: e.target.value})}
+                />
+              </div>
+              
+              <div>
+                <Label htmlFor="gm-email">Email</Label>
+                <Input
+                  id="gm-email"
+                  type="email"
+                  value={gmSettings.email}
+                  onChange={(e) => setGmSettings({...gmSettings, email: e.target.value})}
+                />
+              </div>
+              
+              <div className="flex gap-2 pt-2">
+                <Button
+                  onClick={handleSaveGmSettings}
+                  disabled={loading}
+                  size="sm"
+                  className="flex-1"
+                >
+                  {loading ? 'Сохранение...' : 'Сохранить'}
+                </Button>
+                <Button
+                  onClick={() => {
+                    setGmSettings({
+                      name: user?.name || '',
+                      email: user?.email || ''
+                    })
+                    setSaveMessage({ type: null, message: '' })
+                  }}
+                  variant="outline"
+                  size="sm"
+                  className="flex-1"
+                >
+                  Отменить
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Статистика */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <BarChart3 className="w-5 h-5" />
+                Статистика гильдии
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="flex justify-between">
+                <span className="text-sm">Всего квестов</span>
+                <Badge variant="secondary">{guildStats.totalQuests}</Badge>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-sm">Выполнено</span>
+                <Badge variant="secondary">{guildStats.completedQuests}</Badge>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-sm">Активных участников</span>
+                <Badge variant="secondary">{guildStats.activeMembers}</Badge>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-sm">Всего наград</span>
+                <Badge variant="secondary">{guildStats.totalRewards}</Badge>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Приватность */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Shield className="w-5 h-5" />
+                Приватность
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex items-center justify-between">
+                <Label className="text-sm">Список участников</Label>
+                <Switch
+                  checked={guildSettings.privacy.memberList}
+                  onCheckedChange={(checked) => 
+                    setGuildSettings({ 
+                      ...guildSettings, 
+                      privacy: { ...guildSettings.privacy, memberList: checked }
+                    })
+                  }
+                />
+              </div>
+              
+              <div className="flex items-center justify-between">
+                <Label className="text-sm">Достижения</Label>
+                <Switch
+                  checked={guildSettings.privacy.achievements}
+                  onCheckedChange={(checked) => 
+                    setGuildSettings({ 
+                      ...guildSettings, 
+                      privacy: { ...guildSettings.privacy, achievements: checked }
+                    })
+                  }
+                />
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Данные</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <Button variant="outline" className="w-full" onClick={exportData}>
+                <Download className="w-4 h-4 mr-2" />
+                Экспорт данных
+              </Button>
+              <Button variant="outline" className="w-full" onClick={importData}>
+                <Upload className="w-4 h-4 mr-2" />
+                Импорт данных
+              </Button>
+            </CardContent>
+          </Card>
+
+          <Card className="border-red-600 border-2">
+            <CardHeader>
+              <CardTitle className="text-red-400">Опасная зона</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <Button 
+                variant="destructive" 
+                className="w-full" 
+                onClick={deleteGuild}
+              >
+                <Trash2 className="w-4 h-4 mr-2" />
+                Удалить гильдию
+              </Button>
+              <p className="text-xs text-muted-foreground mt-2">
+                Это действие нельзя отменить
+              </p>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    </div>
+  )
+}
